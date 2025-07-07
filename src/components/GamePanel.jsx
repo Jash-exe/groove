@@ -1,6 +1,7 @@
 import { useState } from "react";
 import SettingsDialog from "./SettingsDialog";
 import WyrGame from "./WyrGame";
+import MusicTriviaGame from "./MusicTriviaGame";
 
 const games = [
   {
@@ -12,7 +13,7 @@ const games = [
     players: "2-8",
     duration: "10-15 min",
     badgeColor: "bg-[#a259ff] bg-opacity-20",
-    enabled: false
+    enabled: true // Enable Music Trivia
   },
   {
     id: "would-you-rather",
@@ -51,7 +52,7 @@ const games = [
 
 function PlayIcon({ enabled }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={`mr-2 ${enabled ? '' : 'opacity-60'}`}> 
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={`mr-2 ${enabled ? '' : 'opacity-60'}`}>
       <polygon points="6,4 15,10 6,16" stroke="white" strokeWidth="2" fill="none" strokeLinejoin="round" />
     </svg>
   );
@@ -60,8 +61,13 @@ function PlayIcon({ enabled }) {
 export default function GamePanel() {
   const [stage, setStage] = useState("menu");
   const [config, setConfig] = useState(null);
+  const [activeGame, setActiveGame] = useState(null); // 'trivia' | 'would-you-rather'
 
-  if (stage === "game" && config)
+  if (stage === "game" && config && activeGame === "trivia")
+    return (
+      <MusicTriviaGame total={config.total} secs={config.secs} onDone={() => setStage("menu")} />
+    );
+  if (stage === "game" && config && activeGame === "would-you-rather")
     return (
       <WyrGame total={config.total} secs={config.secs} onFinish={() => setStage("menu")} />
     );
@@ -91,7 +97,10 @@ export default function GamePanel() {
                 game.enabled ? "hover:opacity-90" : "opacity-60 cursor-not-allowed"
               }`}
               onClick={() => {
-                if (game.enabled) setStage("settings");
+                if (game.enabled) {
+                  setActiveGame(game.id);
+                  setStage("settings");
+                }
               }}
               disabled={!game.enabled}
             >
