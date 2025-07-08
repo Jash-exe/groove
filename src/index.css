@@ -87,5 +87,7 @@
   body {
     @apply bg-background text-foreground;
     background: var(--gradient-secondary);
+    margin: 0;
+    padding: 0;
   }
 }
