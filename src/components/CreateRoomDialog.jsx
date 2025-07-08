@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Music, Copy, CheckCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
 
 const CreateRoomDialog = ({ open, onOpenChange }) => {
   const [userName, setUserName] = useState("");
@@ -15,11 +16,11 @@ const CreateRoomDialog = ({ open, onOpenChange }) => {
   const [isCreated, setIsCreated] = useState(false);
   const navigate = useNavigate();
 
-  const generateRoomCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  };
+  // Generate a 6-character uppercase room code
+  const generateRoomCode = () =>
+    Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  const handleCreateRoom = () => {
+  const handleCreateRoom = async () => {
     if (!userName.trim()) {
       toast({
         title: "Your name is required",
@@ -36,7 +37,48 @@ const CreateRoomDialog = ({ open, onOpenChange }) => {
       });
       return;
     }
+  
     const newRoomCode = generateRoomCode();
+  
+    // Insert into rooms table with host_name
+    const { data: roomData, error: roomError } = await supabase
+  .from("rooms")
+  .insert([{ room_name: roomName, code: newRoomCode, host_name: userName }]) // make sure host_name exists
+  .select()
+  .single();
+
+if (roomError) {
+  console.error("Room creation error object:", roomError);
+  console.error("Room creation error details:");
+  console.log("Message:", roomError.message);
+  console.log("Details:", roomError.details);
+  console.log("Hint:", roomError.hint);
+  console.log("Code:", roomError.code);
+ // Full error object
+  toast({
+    title: "Error creating room",
+    description: roomError.message,
+    variant: "destructive"
+  });
+  return;
+}
+
+  
+    // Insert the creator into participants table
+    const { error: partError } = await supabase
+      .from("participants")
+      .insert([{ room_code: newRoomCode, user_name: userName }]);
+  
+    if (partError) {
+      console.error("Error adding participant:", partError);
+      toast({
+        title: "Failed to add participant",
+        description: partError.message,
+        variant: "destructive"
+      });
+      return;
+    }
+  
     setRoomCode(newRoomCode);
     setIsCreated(true);
     toast({
@@ -44,7 +86,7 @@ const CreateRoomDialog = ({ open, onOpenChange }) => {
       description: `Your room "${roomName}" is ready to go.`
     });
   };
-
+  
   const copyRoomCode = async () => {
     try {
       await navigator.clipboard.writeText(roomCode);
@@ -128,7 +170,9 @@ const CreateRoomDialog = ({ open, onOpenChange }) => {
                   <p className="font-semibold text-foreground">{roomName}</p>
                   <p className="text-sm text-muted-foreground">Room Code</p>
                   <div className="flex items-center justify-center gap-2 p-3 bg-background rounded-lg border">
-                    <code className="text-2xl font-bold text-primary tracking-wider">{roomCode}</code>
+                    <code className="text-2xl font-bold text-primary tracking-wider">
+                      {roomCode}
+                    </code>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -149,7 +193,7 @@ const CreateRoomDialog = ({ open, onOpenChange }) => {
                 variant="hero" 
                 className="flex-1"
                 onClick={() => {
-                  navigate(`/room/${roomCode}`, { state: { roomName, userName } });
+                  navigate(`/room/${roomCode}`, { state: { roomName, userName, roomCode } });
                   handleClose();
                 }}
               >
