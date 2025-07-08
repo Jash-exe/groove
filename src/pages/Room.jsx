@@ -1,15 +1,29 @@
+// Room.jsx
 import { useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Music, Users, MessageCircle, Gamepad2, Mic, Play, Pause, SkipForward, SkipBack, Volume2, Heart, Share2 } from "lucide-react";
+import axios from "axios";
+// ✅ Use correct relative path
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+
+import {
+  Music,
+  Users,
+  MessageCircle,
+  Gamepad2,
+  Mic,
+  X,
+  Volume2,
+  Heart,
+  Share2,
+} from "lucide-react";
 import MusicPlayer from "@/components/MusicPlayer";
 import ChatPanel from "@/components/ChatPanel";
-import ParticipantsList from "@/components/ParticipantsList";
 import GamePanel from "@/components/GamePanel";
 import KaraokePanel from "@/components/KaraokePanel";
+import ParticipantsList from "@/components/ParticipantsList";
 
 const Room = () => {
   const { roomCode } = useParams();
@@ -17,8 +31,12 @@ const Room = () => {
   const [activeTab, setActiveTab] = useState("music");
   const roomName = location.state?.roomName || "Chill Vibes Room";
   const userName = location.state?.userName || "You";
-  
-  // Mock room data
+
+  const [queue, setQueue] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [currentSong, setCurrentSong] = useState(null);
+
   const roomData = {
     name: roomName,
     code: roomCode || "ABC123",
@@ -27,20 +45,43 @@ const Room = () => {
       { id: 2, name: "Alex", avatar: "🎧", isHost: false, isActive: true },
       { id: 3, name: "Sam", avatar: "🎤", isHost: false, isActive: false },
       { id: 4, name: "Jordan", avatar: "🎸", isHost: false, isActive: true },
-    ]
+    ],
   };
 
-  const currentSong = {
-    title: "Midnight City",
-    artist: "M83",
-    album: "Hurry Up, We're Dreaming",
-    duration: "4:03",
-    currentTime: "1:32"
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const res = await axios.get(`http://localhost:5000/search?query=${query}`);
+      setSearchResults(res.data.results);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const addToQueue = (song) => {
+    const newQueue = [...queue, song];
+    setQueue(newQueue);
+    if (!currentSong) setCurrentSong(song);
+    setSearchQuery("");
+    setSearchResults([]);
+  };
+
+  const removeFromQueue = (videoId) => {
+    const newQueue = queue.filter((s) => s.videoId !== videoId);
+    setQueue(newQueue);
+    if (currentSong?.videoId === videoId) {
+      if (newQueue.length > 0) setCurrentSong(newQueue[0]);
+      else setCurrentSong(null);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-secondary">
-      {/* Room Header */}
+      {/* Header */}
       <header className="bg-card/80 backdrop-blur-md border-b border-border p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -50,9 +91,7 @@ const Room = () => {
             <div>
               <h1 className="text-2xl font-bold text-foreground mb-2">{roomData.name}</h1>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="font-mono">
-                  {roomData.code}
-                </Badge>
+                <Badge variant="secondary" className="font-mono">{roomData.code}</Badge>
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Users className="w-3 h-3" />
                   {roomData.participants.length}
@@ -60,90 +99,86 @@ const Room = () => {
               </div>
             </div>
           </div>
-          
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm">
-              <Heart className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Share2 className="w-4 h-4" />
-            </Button>
-            <Button variant="hero" size="sm">
-              Invite Friends
-            </Button>
+            <Button variant="ghost" size="sm"><Heart className="w-4 h-4" /></Button>
+            <Button variant="ghost" size="sm"><Share2 className="w-4 h-4" /></Button>
+            <Button variant="hero" size="sm">Invite Friends</Button>
           </div>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main Content Area */}
+        {/* Main Content */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Music Player */}
-          <MusicPlayer currentSong={currentSong} />
-          
-          {/* Tabs for Features */}
+          <MusicPlayer
+            currentSong={currentSong}
+            queue={queue}
+            setCurrentSong={setCurrentSong}
+            setQueue={setQueue}
+          />
+
           <Card className="bg-card/80 backdrop-blur-md border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-foreground">Room Activities</CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-4 bg-muted/50">
-                  <TabsTrigger value="music" className="flex items-center gap-2">
-                    <Music className="w-4 h-4" />
-                    Queue
-                  </TabsTrigger>
-                  <TabsTrigger value="chat" className="flex items-center gap-2">
-                    <MessageCircle className="w-4 h-4" />
-                    Chat
-                  </TabsTrigger>
-                  <TabsTrigger value="games" className="flex items-center gap-2">
-                    <Gamepad2 className="w-4 h-4" />
-                    Games
-                  </TabsTrigger>
-                  <TabsTrigger value="karaoke" className="flex items-center gap-2">
-                    <Mic className="w-4 h-4" />
-                    Karaoke
-                  </TabsTrigger>
+                  <TabsTrigger value="music"><Music className="w-4 h-4" />Queue</TabsTrigger>
+                  <TabsTrigger value="chat"><MessageCircle className="w-4 h-4" />Chat</TabsTrigger>
+                  <TabsTrigger value="games"><Gamepad2 className="w-4 h-4" />Games</TabsTrigger>
+                  <TabsTrigger value="karaoke"><Mic className="w-4 h-4" />Karaoke</TabsTrigger>
                 </TabsList>
-                
+
                 <div className="mt-6">
-                  <TabsContent value="music" className="space-y-4">
-                    <div className="space-y-3">
-                      <h3 className="font-semibold text-foreground">Up Next</h3>
-                      {[
-                        { title: "Bohemian Rhapsody", artist: "Queen", addedBy: "Alex" },
-                        { title: "Hotel California", artist: "Eagles", addedBy: "Sam" },
-                        { title: "Stairway to Heaven", artist: "Led Zeppelin", addedBy: "Jordan" },
-                      ].map((song, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <TabsContent value="music">
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      className="w-full p-2 border rounded mb-2 bg-muted/30 text-foreground"
+                      placeholder="Search for songs..."
+                    />
+                    {searchResults.length > 0 && (
+                      <div className="bg-card border border-border rounded mb-3">
+                        {searchResults.map((song, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer"
+                            onClick={() => addToQueue(song)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <img src={song.thumbnail} alt="" className="w-10 h-10 rounded" />
+                              <div>
+                                <p className="font-medium text-foreground">{song.title}</p>
+                                <p className="text-xs text-muted-foreground">{song.artist}</p>
+                              </div>
+                            </div>
+                            <Badge variant="outline">+ Add</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {queue.map((song, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg mb-2">
+                        <div className="flex items-center gap-2">
+                          <img src={song.thumbnail} alt="" className="w-10 h-10 rounded" />
                           <div>
                             <p className="font-medium text-foreground">{song.title}</p>
-                            <p className="text-sm text-muted-foreground">{song.artist}</p>
+                            <p className="text-xs text-muted-foreground">{song.artist}</p>
                           </div>
-                          <Badge variant="outline" className="text-xs">
-                            Added by {song.addedBy}
-                          </Badge>
                         </div>
-                      ))}
-                      <Button variant="outline" className="w-full">
-                        <Music className="w-4 h-4" />
-                        Add Song to Queue
-                      </Button>
-                    </div>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline">{song.duration}</Badge>
+                          <Button variant="ghost" size="icon" onClick={() => removeFromQueue(song.videoId)}>
+                            <X className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </TabsContent>
-                  
-                  <TabsContent value="chat">
-                    <ChatPanel />
-                  </TabsContent>
-                  
-                  <TabsContent value="games">
-                    <GamePanel />
-                  </TabsContent>
-                  
-                  <TabsContent value="karaoke">
-                    <KaraokePanel />
-                  </TabsContent>
+                  <TabsContent value="chat"><ChatPanel /></TabsContent>
+                  <TabsContent value="games"><GamePanel /></TabsContent>
+                  <TabsContent value="karaoke"><KaraokePanel /></TabsContent>
                 </div>
               </Tabs>
             </CardContent>
@@ -153,24 +188,16 @@ const Room = () => {
         {/* Sidebar */}
         <div className="space-y-4">
           <ParticipantsList participants={roomData.participants} />
-          
-          {/* Quick Actions */}
           <Card className="bg-card/80 backdrop-blur-md border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-foreground">Quick Actions</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-sm text-foreground">Quick Actions</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               <Button variant="outline" size="sm" className="w-full justify-start">
-                <Volume2 className="w-4 h-4" />
-                Audio Settings
+                <Volume2 className="w-4 h-4" /> Audio Settings
               </Button>
               <Button variant="outline" size="sm" className="w-full justify-start">
-                <Share2 className="w-4 h-4" />
-                Share Room
+                <Share2 className="w-4 h-4" /> Share Room
               </Button>
-              <Button variant="destructive" size="sm" className="w-full justify-start">
-                Leave Room
-              </Button>
+              <Button variant="destructive" size="sm" className="w-full justify-start">Leave Room</Button>
             </CardContent>
           </Card>
         </div>
