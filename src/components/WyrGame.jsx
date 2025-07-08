@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import questions from "../assets/questions.json";
 
 function parseQuestion(str) {
@@ -12,9 +12,17 @@ function parseQuestion(str) {
   };
 }
 
-const deck = questions.map(parseQuestion);
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export default function WyrGame({ total = 10, secs = 15, onFinish }) {
+  const deck = useMemo(() => shuffle(questions.map(parseQuestion)), []);
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState(null);
   const [timeLeft, setTimeLeft] = useState(secs);
