@@ -1,73 +1,122 @@
-# Welcome to your Lovable project
+# 🎵 GROOVE — Real-time Group Music Sharing Platform
 
-## Project info
+Welcome to **GROOVE**, a synchronized music listening platform that lets users create and join rooms to share and experience music together in real-time with friends.
 
-**URL**: https://lovable.dev/projects/f83c984d-30d1-4773-a995-be972fd55ba6
+---
 
-## How can I edit this code?
+## ✨ Features
 
-There are several ways of editing your application.
+- 🔐 **Room System**  
+  Create and join music rooms using a unique 6-character room code.
 
-**Use Lovable**
+- 🧑‍🤝‍🧑 **Participants Management**  
+  Realtime display of all room members (host + listeners) using Supabase Realtime.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/f83c984d-30d1-4773-a995-be972fd55ba6) and start prompting.
+- 💬 **Personalized Identity**  
+  Each user joins a room with their chosen display name — no authentication required.
 
-Changes made via Lovable will be committed automatically to this repo.
+- 💽 **Music Sync Engine** *(Coming Soon)*  
+  Sync music playback across all users in a room.
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 🛠 Tech Stack
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- **Frontend**: React + Vite  
+- **Backend**: Supabase (Database + Realtime)  
+- **Styling**: Tailwind CSS + Radix UI  
+- **Icons**: Lucide  
+- **State Management**: React Hooks  
+- **Routing**: React Router
 
-Follow these steps:
+---
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## ⚙️ Setup Instructions
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 1. Clone the Repository
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+git clone https://github.com/krisha-pisat/Groove.git
+cd groove
 ```
 
-**Edit a file directly in GitHub**
+### 2. Install Dependencies
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+npm install
+# or
+yarn
+```
 
-**Use GitHub Codespaces**
+### 3. Set up `.env` file
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Create a `.env` file in the root with the following keys:
 
-## What technologies are used for this project?
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-This project is built with:
+> ⚠️ Make sure to enable Realtime on your Supabase tables and configure RLS policies properly (or disable RLS for development).
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
+## 🧾 Supabase Database Schema
 
-Simply open [Lovable](https://lovable.dev/projects/f83c984d-30d1-4773-a995-be972fd55ba6) and click on Share -> Publish.
+### Table: `rooms`
 
-## Can I connect a custom domain to my Lovable project?
+| Column     | Type | Notes                      |
+|------------|------|----------------------------|
+| `code`     | text | Primary key (room code)    |
+| `room_name`| text | Name of the room           |
+| `host_name`| text | Name of the room creator   |
 
-Yes, you can!
+### Table: `participants`
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+| Column       | Type | Notes                       |
+|--------------|------|-----------------------------|
+| `room_code`  | text | Foreign key to `rooms.code` |
+| `user_name`  | text | Name of participant         |
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+---
+
+## 🧪 Run Locally
+
+```bash
+npm run dev
+# or
+yarn dev
+```
+
+Open `http://localhost:5173` in your browser.
+
+---
+
+## 📦 Build for Production
+
+```bash
+npm run build
+```
+
+---
+
+## 🚀 Planned Features
+
+- 🎧 Spotify/YouTube music integration  
+- ⏱ Music sync engine  
+- 💬 Room chat  
+- 🎤 Mic or karaoke mode  
+- 🧠 Music recommendations  
+
+---
+
+## 👨‍💻 Team
+
+Built with ❤️ by:
+- Jash Patel
+- Krisha Pisat
+- Manasa Ganti
+
+---
+## PPT Link:
+https://docs.google.com/presentation/d/1mPnOVRoa1eDIlXq7S_Kfo_NMsncRM6dJ/edit?usp=sharing&ouid=103024375208167753150&rtpof=true&sd=true
