@@ -1,24 +1,22 @@
-// Room.jsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
 import axios from "axios";
-// ✅ Use correct relative path
-import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Music,
   Users,
   MessageCircle,
   Gamepad2,
   Mic,
-  X,
-  Volume2,
   Heart,
   Share2,
+  X
 } from "lucide-react";
+
 import MusicPlayer from "@/components/MusicPlayer";
 import ChatPanel from "@/components/ChatPanel";
 import GamePanel from "@/components/GamePanel";
@@ -28,25 +26,16 @@ import ParticipantsList from "@/components/ParticipantsList";
 const Room = () => {
   const { roomCode } = useParams();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState("music");
-  const roomName = location.state?.roomName || "Chill Vibes Room";
   const userName = location.state?.userName || "You";
+  const roomName = location.state?.roomName || "Chill Vibes Room";
+
+  const [participants, setParticipants] = useState([]);
+  const [activeTab, setActiveTab] = useState("music");
 
   const [queue, setQueue] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [currentSong, setCurrentSong] = useState(null);
-
-  const roomData = {
-    name: roomName,
-    code: roomCode || "ABC123",
-    participants: [
-      { id: 1, name: `${userName} (You)`, avatar: "🎵", isHost: true, isActive: true },
-      { id: 2, name: "Alex", avatar: "🎧", isHost: false, isActive: true },
-      { id: 3, name: "Sam", avatar: "🎤", isHost: false, isActive: false },
-      { id: 4, name: "Jordan", avatar: "🎸", isHost: false, isActive: true },
-    ],
-  };
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -74,10 +63,72 @@ const Room = () => {
     const newQueue = queue.filter((s) => s.videoId !== videoId);
     setQueue(newQueue);
     if (currentSong?.videoId === videoId) {
-      if (newQueue.length > 0) setCurrentSong(newQueue[0]);
-      else setCurrentSong(null);
+      setCurrentSong(newQueue.length > 0 ? newQueue[0] : null);
     }
   };
+
+  useEffect(() => {
+    let subscription;
+
+    const fetchRoomData = async () => {
+      const { data: roomData, error: roomError } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("code", roomCode)
+        .single();
+
+      if (roomError || !roomData) {
+        console.error("Error fetching room:", roomError?.message);
+        return;
+      }
+    };
+
+    const fetchParticipants = async () => {
+      const { data, error } = await supabase
+        .from("participants")
+        .select("*")
+        .eq("room_code", roomCode)
+        .order("created_at", { ascending: true });
+    
+      if (error) {
+        console.error("Error fetching participants:", error.message);
+        return;
+      }
+    
+      // First participant is host (created first)
+      const hostId = data?.[0]?.id;
+    
+      setParticipants(
+        data.map((p) => ({
+          id: p.id,
+          name: p.user_name === userName ? `${p.user_name} (You)` : p.user_name,
+          avatar: "🎧",
+          isHost: p.id === hostId,
+          isActive: true,
+        }))
+      );
+    };
+    
+
+    const subscribeToParticipants = () => {
+      subscription = supabase
+        .channel("room-participants-" + roomCode)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "participants", filter: `room_code=eq.${roomCode}` },
+          () => fetchParticipants()
+        )
+        .subscribe();
+    };
+
+    fetchRoomData();
+    fetchParticipants();
+    subscribeToParticipants();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [roomCode]);
 
   return (
     <div className="min-h-screen bg-gradient-secondary">
@@ -89,16 +140,17 @@ const Room = () => {
               <Music className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground mb-2">{roomData.name}</h1>
+              <h1 className="text-2xl font-bold text-foreground mb-2">{roomName}</h1>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="font-mono">{roomData.code}</Badge>
+                <Badge variant="secondary" className="font-mono">{roomCode}</Badge>
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Users className="w-3 h-3" />
-                  {roomData.participants.length}
+                  {participants.length}
                 </Badge>
               </div>
             </div>
           </div>
+
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm"><Heart className="w-4 h-4" /></Button>
             <Button variant="ghost" size="sm"><Share2 className="w-4 h-4" /></Button>
@@ -124,10 +176,18 @@ const Room = () => {
             <CardContent>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-4 bg-muted/50">
-                  <TabsTrigger value="music"><Music className="w-4 h-4" />Queue</TabsTrigger>
-                  <TabsTrigger value="chat"><MessageCircle className="w-4 h-4" />Chat</TabsTrigger>
-                  <TabsTrigger value="games"><Gamepad2 className="w-4 h-4" />Games</TabsTrigger>
-                  <TabsTrigger value="karaoke"><Mic className="w-4 h-4" />Karaoke</TabsTrigger>
+                  <TabsTrigger value="music" className="flex items-center gap-2">
+                    <Music className="w-4 h-4" /> Queue
+                  </TabsTrigger>
+                  <TabsTrigger value="chat" className="flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4" /> Chat
+                  </TabsTrigger>
+                  <TabsTrigger value="games" className="flex items-center gap-2">
+                    <Gamepad2 className="w-4 h-4" /> Games
+                  </TabsTrigger>
+                  <TabsTrigger value="karaoke" className="flex items-center gap-2">
+                    <Mic className="w-4 h-4" /> Karaoke
+                  </TabsTrigger>
                 </TabsList>
 
                 <div className="mt-6">
@@ -176,30 +236,27 @@ const Room = () => {
                       </div>
                     ))}
                   </TabsContent>
-                  <TabsContent value="chat"><ChatPanel /></TabsContent>
-                  <TabsContent value="games"><GamePanel /></TabsContent>
-                  <TabsContent value="karaoke"><KaraokePanel /></TabsContent>
+
+                  <TabsContent value="chat">
+                    <ChatPanel userName={userName} roomCode={roomCode} />
+                  </TabsContent>
+
+                  <TabsContent value="games">
+                    <GamePanel userName={userName} roomCode={roomCode} />
+                  </TabsContent>
+
+                  <TabsContent value="karaoke">
+                    <KaraokePanel userName={userName} roomCode={roomCode} />
+                  </TabsContent>
                 </div>
               </Tabs>
             </CardContent>
           </Card>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          <ParticipantsList participants={roomData.participants} />
-          <Card className="bg-card/80 backdrop-blur-md border-border">
-            <CardHeader><CardTitle className="text-sm text-foreground">Quick Actions</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Volume2 className="w-4 h-4" /> Audio Settings
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Share2 className="w-4 h-4" /> Share Room
-              </Button>
-              <Button variant="destructive" size="sm" className="w-full justify-start">Leave Room</Button>
-            </CardContent>
-          </Card>
+        {/* Right Sidebar */}
+        <div>
+          <ParticipantsList participants={participants} />
         </div>
       </div>
     </div>
