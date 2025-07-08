@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Groove Music Platform Design System */
+
+@layer base {
+  :root {
+    /* Dark music-themed background */
+    --background: 240 10% 8%;
+    --foreground: 300 20% 95%;
+
+    /* Cards with glassmorphism effect */
+    --card: 240 15% 12%;
+    --card-foreground: 300 15% 90%;
+
+    --popover: 240 15% 12%;
+    --popover-foreground: 300 15% 90%;
+
+    /* Primary purple gradient colors */
+    --primary: 280 100% 60%;
+    --primary-foreground: 300 20% 95%;
+    
+    /* Vibrant secondary pink */
+    --secondary: 320 90% 65%;
+    --secondary-foreground: 240 10% 8%;
+
+    /* Muted with subtle purple tint */
+    --muted: 240 15% 18%;
+    --muted-foreground: 300 10% 65%;
+
+    /* Accent with music vibe */
+    --accent: 260 80% 70%;
+    --accent-foreground: 240 10% 8%;
+
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 300 20% 95%;
+
+    --border: 240 15% 20%;
+    --input: 240 15% 15%;
+    --ring: 280 100% 60%;
+
+    --radius: 0.75rem;
+
+    /* Music-themed gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(280 100% 60%), hsl(320 90% 65%));
+    --gradient-secondary: linear-gradient(45deg, hsl(240 15% 12%), hsl(240 15% 18%));
+    --gradient-hero: linear-gradient(135deg, hsl(280 100% 60% / 0.9), hsl(320 90% 65% / 0.9));
+    
+    /* Glowing effects */
+    --glow-primary: 0 0 30px hsl(280 100% 60% / 0.5);
+    --glow-secondary: 0 0 20px hsl(320 90% 65% / 0.3);
+    
+    /* Smooth transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  .dark {
+    --background: 240 10% 8%;
+    --foreground: 300 20% 95%;
+    --card: 240 15% 12%;
+    --card-foreground: 300 15% 90%;
+    --popover: 240 15% 12%;
+    --popover-foreground: 300 15% 90%;
+    --primary: 280 100% 60%;
+    --primary-foreground: 300 20% 95%;
+    --secondary: 320 90% 65%;
+    --secondary-foreground: 240 10% 8%;
+    --muted: 240 15% 18%;
+    --muted-foreground: 300 10% 65%;
+    --accent: 260 80% 70%;
+    --accent-foreground: 240 10% 8%;
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 300 20% 95%;
+    --border: 240 15% 20%;
+    --input: 240 15% 15%;
+    --ring: 280 100% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background: var(--gradient-secondary);
+  }
+}
