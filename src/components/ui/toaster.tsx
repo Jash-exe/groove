@@ -1,3 +1,4 @@
+import React from "react";
 import { useToast } from "@/hooks/use-toast"
 import {
   Toast,
@@ -27,7 +28,7 @@ export function Toaster() {
           </Toast>
         )
       })}
-      <ToastViewport />
+      {toasts.length > 0 && <ToastViewport />}
     </ToastProvider>
   )
 }
