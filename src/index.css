@@ -114,3 +114,19 @@
   z-index: 100 !important;
   padding: 1rem !important;
 }
+
+.groove-toast-viewport {
+  position: fixed !important;
+  bottom: 2rem !important;
+  right: 2rem !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 100 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  max-width: 420px !important;
+  width: 100% !important;
+  gap: 1rem !important;
+  padding: 0 !important;
+}

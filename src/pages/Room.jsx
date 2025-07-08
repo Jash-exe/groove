@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,14 +13,17 @@ import KaraokePanel from "@/components/KaraokePanel";
 
 const Room = () => {
   const { roomCode } = useParams();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("music");
+  const roomName = location.state?.roomName || "Chill Vibes Room";
+  const userName = location.state?.userName || "You";
   
   // Mock room data
   const roomData = {
-    name: "Chill Vibes Room",
+    name: roomName,
     code: roomCode || "ABC123",
     participants: [
-      { id: 1, name: "You", avatar: "🎵", isHost: true, isActive: true },
+      { id: 1, name: `${userName} (You)`, avatar: "🎵", isHost: true, isActive: true },
       { id: 2, name: "Alex", avatar: "🎧", isHost: false, isActive: true },
       { id: 3, name: "Sam", avatar: "🎤", isHost: false, isActive: false },
       { id: 4, name: "Jordan", avatar: "🎸", isHost: false, isActive: true },
@@ -45,7 +48,7 @@ const Room = () => {
               <Music className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">{roomData.name}</h1>
+              <h1 className="text-2xl font-bold text-foreground mb-2">{roomData.name}</h1>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="font-mono">
                   {roomData.code}

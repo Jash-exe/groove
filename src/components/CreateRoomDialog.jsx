@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
 const CreateRoomDialog = ({ open, onOpenChange }) => {
+  const [userName, setUserName] = useState("");
   const [roomName, setRoomName] = useState("");
   const [roomCode, setRoomCode] = useState("");
   const [isCreated, setIsCreated] = useState(false);
@@ -19,6 +20,14 @@ const CreateRoomDialog = ({ open, onOpenChange }) => {
   };
 
   const handleCreateRoom = () => {
+    if (!userName.trim()) {
+      toast({
+        title: "Your name is required",
+        description: "Please enter your name to create a room.",
+        variant: "destructive"
+      });
+      return;
+    }
     if (!roomName.trim()) {
       toast({
         title: "Room name required",
@@ -27,11 +36,9 @@ const CreateRoomDialog = ({ open, onOpenChange }) => {
       });
       return;
     }
-
     const newRoomCode = generateRoomCode();
     setRoomCode(newRoomCode);
     setIsCreated(true);
-    
     toast({
       title: "Room created successfully!",
       description: `Your room "${roomName}" is ready to go.`
@@ -55,6 +62,7 @@ const CreateRoomDialog = ({ open, onOpenChange }) => {
   };
 
   const handleClose = () => {
+    setUserName("");
     setRoomName("");
     setRoomCode("");
     setIsCreated(false);
@@ -79,6 +87,16 @@ const CreateRoomDialog = ({ open, onOpenChange }) => {
 
         {!isCreated ? (
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="userName" className="text-foreground">Your Name</Label>
+              <Input
+                id="userName"
+                placeholder="Enter your name..."
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                className="bg-input border-border text-foreground"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="roomName" className="text-foreground">Room Name</Label>
               <Input
@@ -131,7 +149,7 @@ const CreateRoomDialog = ({ open, onOpenChange }) => {
                 variant="hero" 
                 className="flex-1"
                 onClick={() => {
-                  navigate(`/room/${roomCode}`);
+                  navigate(`/room/${roomCode}`, { state: { roomName, userName } });
                   handleClose();
                 }}
               >

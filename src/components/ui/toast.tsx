@@ -13,20 +13,7 @@ const ToastViewport = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Viewport
     ref={ref}
-    style={{
-      top: "auto !important",
-      bottom: "0 !important",
-      right: "0 !important",
-      left: "auto !important",
-      position: "fixed",
-      zIndex: 100,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "end",
-      padding: "1rem",
-      maxWidth: "100vw",
-      width: "100vw"
-    }}
+    className="groove-toast-viewport"
     {...props}
   />
 ))
