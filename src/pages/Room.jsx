@@ -13,7 +13,8 @@ import {
   Gamepad2,
   Mic,
   Heart,
-  Share2
+  Share2,
+  X
 } from "lucide-react";
 
 import MusicPlayer from "@/components/MusicPlayer";
@@ -26,27 +27,15 @@ const Room = () => {
   const { roomCode } = useParams();
   const location = useLocation();
   const userName = location.state?.userName || "You";
-  const [roomName, setRoomName] = useState("Loading...");
+  const roomName = location.state?.roomName || "Chill Vibes Room";
+
   const [participants, setParticipants] = useState([]);
   const [activeTab, setActiveTab] = useState("music");
-  const roomName = location.state?.roomName || "Chill Vibes Room";
-  const userName = location.state?.userName || "You";
 
   const [queue, setQueue] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [currentSong, setCurrentSong] = useState(null);
-
-  const roomData = {
-    name: roomName,
-    code: roomCode || "ABC123",
-    participants: [
-      { id: 1, name: `${userName} (You)`, avatar: "🎵", isHost: true, isActive: true },
-      { id: 2, name: "Alex", avatar: "🎧", isHost: false, isActive: true },
-      { id: 3, name: "Sam", avatar: "🎤", isHost: false, isActive: false },
-      { id: 4, name: "Jordan", avatar: "🎸", isHost: false, isActive: true },
-    ],
-  };
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -74,8 +63,7 @@ const Room = () => {
     const newQueue = queue.filter((s) => s.videoId !== videoId);
     setQueue(newQueue);
     if (currentSong?.videoId === videoId) {
-      if (newQueue.length > 0) setCurrentSong(newQueue[0]);
-      else setCurrentSong(null);
+      setCurrentSong(newQueue.length > 0 ? newQueue[0] : null);
     }
   };
 
@@ -91,11 +79,8 @@ const Room = () => {
 
       if (roomError || !roomData) {
         console.error("Error fetching room:", roomError?.message);
-        setRoomName("Room Not Found");
         return;
       }
-
-      setRoomName(roomData.room_name || `Room ${roomCode}`);
     };
 
     const fetchParticipants = async () => {
@@ -104,21 +89,26 @@ const Room = () => {
         .select("*")
         .eq("room_code", roomCode)
         .order("created_at", { ascending: true });
-
+    
       if (error) {
         console.error("Error fetching participants:", error.message);
         return;
       }
-
+    
+      // First participant is host (created first)
+      const hostId = data?.[0]?.id;
+    
       setParticipants(
         data.map((p) => ({
           id: p.id,
-          name: p.user_name,
+          name: p.user_name === userName ? `${p.user_name} (You)` : p.user_name,
           avatar: "🎧",
-          isActive: true
+          isHost: p.id === hostId,
+          isActive: true,
         }))
       );
     };
+    
 
     const subscribeToParticipants = () => {
       subscription = supabase
@@ -170,7 +160,6 @@ const Room = () => {
       </header>
 
       <div className="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left 3/4 */}
         {/* Main Content */}
         <div className="lg:col-span-3 space-y-6">
           <MusicPlayer
@@ -265,7 +254,7 @@ const Room = () => {
           </Card>
         </div>
 
-        {/* Right 1/4 */}
+        {/* Right Sidebar */}
         <div>
           <ParticipantsList participants={participants} />
         </div>
