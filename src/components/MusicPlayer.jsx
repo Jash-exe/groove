@@ -1,19 +1,24 @@
 import { useRef, useEffect, useState } from "react";
 import {
-  Play, Pause, SkipForward, SkipBack, Repeat, Volume2, Shuffle, Music
+  Play, Pause, SkipForward, SkipBack, Repeat, Volume2, Shuffle, Music, Loader2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 
-const MusicPlayer = ({ currentSong, queue, setCurrentSong, setQueue }) => {
+const MusicPlayer = ({ currentSong, queue, setCurrentSong, setQueue, volume }) => {
   const playerRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState([75]);
+  const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isShuffling, setIsShuffling] = useState(false);
   const intervalRef = useRef(null);
+  const [internalVolume, setInternalVolume] = useState(volume);
+
+  useEffect(() => {
+    setInternalVolume(volume);
+  }, [volume]);
 
   useEffect(() => {
     if (!window.YT) {
@@ -25,6 +30,7 @@ const MusicPlayer = ({ currentSong, queue, setCurrentSong, setQueue }) => {
 
   useEffect(() => {
     if (currentSong && window.YT && window.YT.Player) {
+      setIsLoading(true);
       if (playerRef.current) {
         playerRef.current.loadVideoById(currentSong.videoId);
       } else {
@@ -33,20 +39,31 @@ const MusicPlayer = ({ currentSong, queue, setCurrentSong, setQueue }) => {
           playerVars: { controls: 0, modestbranding: 1 },
           events: {
             onReady: () => {
-              playerRef.current.setVolume(volume[0]);
+              playerRef.current.setVolume(internalVolume[0]);
               playerRef.current.playVideo();
               setIsPlaying(true);
               setDuration(playerRef.current.getDuration());
+              setIsLoading(false);
             },
             onStateChange: (e) => {
               if (e.data === window.YT.PlayerState.ENDED) {
                 handleSkip();
               }
               setIsPlaying(e.data === window.YT.PlayerState.PLAYING);
+              if (
+                e.data === window.YT.PlayerState.BUFFERING ||
+                e.data === window.YT.PlayerState.UNSTARTED
+              ) {
+                setIsLoading(currentSong !== null);
+              } else {
+                setIsLoading(false);
+              }
             },
           },
         });
       }
+    } else {
+      setIsLoading(false);
     }
   }, [currentSong]);
 
@@ -54,10 +71,16 @@ const MusicPlayer = ({ currentSong, queue, setCurrentSong, setQueue }) => {
     if (isPlaying) {
       intervalRef.current = setInterval(() => {
         if (playerRef.current) {
-          setProgress(playerRef.current.getCurrentTime());
-          setDuration(playerRef.current.getDuration());
+          const current = playerRef.current.getCurrentTime();
+          const dur = playerRef.current.getDuration();
+          setProgress(current);
+          setDuration(dur);
+
+          if (dur && current >= dur - 0.5) {
+            handleSkip();
+          }
         }
-      }, 1000);
+      }, 500);
     } else {
       clearInterval(intervalRef.current);
     }
@@ -70,17 +93,26 @@ const MusicPlayer = ({ currentSong, queue, setCurrentSong, setQueue }) => {
   };
 
   const handleSkip = () => {
-    const currentIndex = queue.findIndex((s) => s.videoId === currentSong?.videoId);
-    if (isShuffling) {
-      const next = queue[Math.floor(Math.random() * queue.length)];
-      if (next) setCurrentSong(next);
-    } else if (currentIndex >= 0 && currentIndex < queue.length - 1) {
-      setCurrentSong(queue[currentIndex + 1]);
-    } else {
-      // End of queue: clear
-      setCurrentSong(null);
-    }
-  };
+  const currentIndex = queue.findIndex((s) => s.videoId === currentSong?.videoId);
+  let updatedQueue = [...queue];
+  if (currentIndex >= 0) {
+    updatedQueue.splice(currentIndex, 1); // remove current song from queue
+  }
+
+  if (isShuffling && updatedQueue.length > 0) {
+    const next = updatedQueue[Math.floor(Math.random() * updatedQueue.length)];
+    setCurrentSong(next);
+  } else if (currentIndex >= 0 && currentIndex < queue.length - 1) {
+    setCurrentSong(queue[currentIndex + 1]);
+  } else if (updatedQueue.length > 0) {
+    setCurrentSong(updatedQueue[0]);
+  } else {
+    setCurrentSong(null);
+  }
+
+  setQueue(updatedQueue);
+};
+
 
   const handlePrev = () => {
     const currentIndex = queue.findIndex((s) => s.videoId === currentSong?.videoId);
@@ -91,12 +123,33 @@ const MusicPlayer = ({ currentSong, queue, setCurrentSong, setQueue }) => {
 
   const handleSeek = (val) => {
     if (playerRef.current) {
-      playerRef.current.seekTo(val[0]);
-      setProgress(val[0]);
+      const newTime = val[0];
+      const dur = playerRef.current.getDuration();
+      if (dur && newTime >= dur - 1) {
+        handleSkip(); // Smart skip
+      } else {
+        playerRef.current.seekTo(newTime);
+        setProgress(newTime);
+      }
+    }
+  };
+
+  const handleShuffleToggle = () => {
+    setIsShuffling((prev) => !prev);
+    const shuffled = [...queue];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setQueue(shuffled);
+    // Make sure to update current song if needed
+    if (shuffled.length > 0 && !currentSong) {
+      setCurrentSong(shuffled[0]);
     }
   };
 
   const formatTime = (secs) => {
+    if (!secs || isNaN(secs)) return "0:00";
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return `${m}:${s < 10 ? "0" : ""}${s}`;
@@ -128,10 +181,9 @@ const MusicPlayer = ({ currentSong, queue, setCurrentSong, setQueue }) => {
             )}
           </div>
 
-          {/* Controls */}
           <div className="flex flex-col items-center gap-4">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsShuffling(!isShuffling)}>
+              <Button variant="ghost" size="sm" onClick={handleShuffleToggle}>
                 <Shuffle className={`w-4 h-4 ${isShuffling ? "text-pink-400" : "text-muted-foreground"}`} />
               </Button>
               <Button variant="ghost" size="sm" disabled={!currentSong} onClick={handlePrev}>
@@ -144,7 +196,13 @@ const MusicPlayer = ({ currentSong, queue, setCurrentSong, setQueue }) => {
                 className="w-12 h-12 rounded-full shadow-glow flex items-center justify-center"
                 disabled={!currentSong}
               >
-                {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+                {isLoading && currentSong ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : isPlaying ? (
+                  <Pause className="w-6 h-6" />
+                ) : (
+                  <Play className="w-6 h-6" />
+                )}
               </Button>
               <Button variant="ghost" size="sm" disabled={!currentSong} onClick={handleSkip}>
                 <SkipForward className="w-5 h-5" />
@@ -159,24 +217,23 @@ const MusicPlayer = ({ currentSong, queue, setCurrentSong, setQueue }) => {
               <Slider
                 value={[progress]}
                 onValueChange={handleSeek}
-                max={duration}
+                max={duration || 1}
                 step={1}
                 className="flex-1"
                 disabled={!currentSong}
               />
               <span className="text-xs text-muted-foreground w-10">
-                {currentSong ? currentSong.duration : "--:--"}
+                {formatTime(duration)}
               </span>
             </div>
           </div>
 
-          {/* Volume Control */}
           <div className="flex items-center gap-2">
             <Volume2 className="w-4 h-4 text-muted-foreground" />
             <Slider
-              value={volume}
+              value={internalVolume}
               onValueChange={(val) => {
-                setVolume(val);
+                setInternalVolume(val);
                 if (playerRef.current) playerRef.current.setVolume(val[0]);
               }}
               max={100}
