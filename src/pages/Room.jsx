@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,8 @@ import {
   Mic,
   Heart,
   Share2,
-  X
+  X,
+  Volume2
 } from "lucide-react";
 
 import MusicPlayer from "@/components/MusicPlayer";
@@ -22,12 +23,29 @@ import ChatPanel from "@/components/ChatPanel";
 import GamePanel from "@/components/GamePanel";
 import KaraokePanel from "@/components/KaraokePanel";
 import ParticipantsList from "@/components/ParticipantsList";
+import { useToast, toast } from "@/hooks/use-toast";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem
+} from "@/components/ui/select";
 
 const Room = () => {
   const { roomCode } = useParams();
   const location = useLocation();
   const userName = location.state?.userName || "You";
   const roomName = location.state?.roomName || "Chill Vibes Room";
+  const navigate = useNavigate();
+  const [audioModalOpen, setAudioModalOpen] = useState(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  // Audio settings state
+  const [masterVolume, setMasterVolume] = useState(75);
+  const [audioDevices, setAudioDevices] = useState([{ deviceId: "default", label: "Default" }]);
+  const [selectedDevice, setSelectedDevice] = useState("default");
+  const [audioQuality, setAudioQuality] = useState("high");
 
   const [participants, setParticipants] = useState([]);
   const [activeTab, setActiveTab] = useState("music");
@@ -66,6 +84,58 @@ const Room = () => {
       setCurrentSong(newQueue.length > 0 ? newQueue[0] : null);
     }
   };
+
+  // Helper for sharing room
+  const handleShareRoom = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast({ title: "Room link copied!" });
+    } catch (err) {
+      toast({ title: "Failed to copy link", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleLeaveRoom = async () => {
+    try {
+      // Remove user from participants table
+      const { error } = await supabase
+        .from("participants")
+        .delete()
+        .eq("room_code", roomCode)
+        .eq("user_name", userName);
+  
+      if (error) {
+        console.error("Error removing participant:", error.message);
+      }
+    } catch (err) {
+      console.error("Unexpected error leaving room:", err);
+    }
+  
+    setLeaveDialogOpen(false);
+    navigate("/");
+    toast({
+      title: "Left room",
+      description: "You've successfully left the room",
+      position: "bottom-left"
+    });
+  };
+  
+
+  // Fetch audio output devices
+  useEffect(() => {
+    if (!audioModalOpen) return;
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    navigator.mediaDevices.enumerateDevices().then((devices) => {
+      const outputs = devices.filter((d) => d.kind === "audiooutput");
+      setAudioDevices([{ deviceId: "default", label: "Default" }, ...outputs.map((d) => ({ deviceId: d.deviceId, label: d.label || `Device ${d.deviceId.slice(-4)}` }))]);
+    });
+  }, [audioModalOpen]);
+
+  // Pass volume to MusicPlayer
+  const [playerVolume, setPlayerVolume] = useState([75]);
+  useEffect(() => {
+    setPlayerVolume([masterVolume]);
+  }, [masterVolume]);
 
   useEffect(() => {
     let subscription;
@@ -111,23 +181,65 @@ const Room = () => {
     
 
     const subscribeToParticipants = () => {
-      subscription = supabase
-        .channel("room-participants-" + roomCode)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "participants", filter: `room_code=eq.${roomCode}` },
-          () => fetchParticipants()
-        )
-        .subscribe();
-    };
+            subscription = supabase
+        .channel("room-participants-" + roomCode)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "participants",
+            filter: `room_code=eq.${roomCode}`,
+          },
+          (payload) => {
+            console.log("Participant joined:", payload);
+            setParticipants((prev) => {
+              const newParticipant = payload.new;
+              const exists = prev.some((p) => p.id === newParticipant.id);
+              if (exists) return prev;
+              const isHost = prev.length === 0;
+              return [
+                ...prev,
+                {
+                  id: newParticipant.id,
+                  name: newParticipant.user_name === userName ? `${newParticipant.user_name} (You)` : newParticipant.user_name,
+                  avatar: "🎧",
+                  isHost,
+                  isActive: true,
+                },
+              ];
+            });
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "DELETE",
+            schema: "public",
+            table: "participants",
+            filter: `room_code=eq.${roomCode}`, // This is the correct way to add the filter
+          },
+          (payload) => {
+            console.log("Participant left:", payload);
+            // You can remove the manual check now as the filter above handles it
+            // if (payload?.old?.room_code !== roomCode) return;
+            const deletedId = payload.old.id;
+            setParticipants((prev) => prev.filter((p) => p.id !== deletedId));
+          }
+        )
+        .subscribe();
+      
+          };
+    
 
     fetchRoomData();
     fetchParticipants();
     subscribeToParticipants();
 
     return () => {
-      supabase.removeChannel(subscription);
+      if (subscription) supabase.removeChannel(subscription);
     };
+    
   }, [roomCode]);
 
   return (
@@ -167,6 +279,7 @@ const Room = () => {
             queue={queue}
             setCurrentSong={setCurrentSong}
             setQueue={setQueue}
+            volume={playerVolume}
           />
 
           <Card className="bg-card/80 backdrop-blur-md border-border">
@@ -257,6 +370,86 @@ const Room = () => {
         {/* Right Sidebar */}
         <div>
           <ParticipantsList participants={participants} />
+          {/* Quick Actions Section */}
+          <Card className="mt-6 bg-card/80 backdrop-blur-md border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-foreground text-base">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button variant="outline" className="w-full flex justify-start gap-2" onClick={() => setAudioModalOpen(true)}>
+                <span className="mr-2"><Volume2 className="w-4 h-4" /></span>
+                Audio Settings
+              </Button>
+              <Button variant="outline" className="w-full flex justify-start gap-2" onClick={handleShareRoom}>
+                <span className="mr-2"><Share2 className="w-4 h-4" /></span>
+                Share Room
+              </Button>
+              <Button variant="destructive" className="w-full flex justify-start gap-2" onClick={() => setLeaveDialogOpen(true)}> 
+                Leave Room
+              </Button>
+            </CardContent>
+          </Card>
+          {/* Audio Settings Modal */}
+          {audioModalOpen && (
+            <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-60">
+              <div className="bg-[#181825] rounded-2xl border border-[#232336] shadow-[0_0_24px_0_rgba(236,72,153,0.15)] p-8 w-full max-w-lg relative">
+                <button className="absolute top-4 right-4 text-muted-foreground hover:text-white" onClick={() => setAudioModalOpen(false)}><X className="w-6 h-6" /></button>
+                <h2 className="text-2xl font-bold text-white mb-8">Audio Settings</h2>
+                <div className="mb-8">
+                  <label className="block text-white font-semibold mb-2">Master Volume</label>
+                  <Slider
+                    value={[masterVolume]}
+                    onValueChange={val => setMasterVolume(val[0])}
+                    max={100}
+                    min={0}
+                    step={1}
+                  />
+                  <div className="text-slate-300 text-sm mt-2">{masterVolume}%</div>
+                </div>
+                <div className="mb-8">
+                  <label className="block text-white font-semibold mb-2">Audio Device</label>
+                  <Select value={selectedDevice} onValueChange={setSelectedDevice}>
+                    <SelectTrigger>
+                      <SelectValue>{audioDevices.find(d => d.deviceId === selectedDevice)?.label || "Default"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {audioDevices
+                        .filter(d => d.deviceId && d.deviceId !== "")
+                        .map((d) => (
+                          <SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Device ${d.deviceId.slice(-4)}`}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="mb-2">
+                  <label className="block text-white font-semibold mb-2">Audio Quality</label>
+                  <Select value={audioQuality} onValueChange={setAudioQuality}>
+                    <SelectTrigger>
+                      <SelectValue>{audioQuality === "high" ? "High (320 kbps)" : audioQuality === "medium" ? "Medium (128 kbps)" : "Low (64 kbps)"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High (320 kbps)</SelectItem>
+                      <SelectItem value="medium">Medium (128 kbps)</SelectItem>
+                      <SelectItem value="low">Low (64 kbps)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Leave Room Confirmation Dialog */}
+          {leaveDialogOpen && (
+            <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-60">
+              <div className="bg-[#181825] rounded-2xl border border-[#232336] shadow-[0_0_24px_0_rgba(236,72,153,0.15)] p-8 w-full max-w-md">
+                <h2 className="text-2xl font-bold text-white mb-2">Leave Room?</h2>
+                <p className="text-slate-300 mb-8">Are you sure you want to leave this room? You'll need the room code to rejoin.</p>
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline" className="px-6" onClick={() => setLeaveDialogOpen(false)}>Cancel</Button>
+                  <Button variant="destructive" className="px-6" onClick={handleLeaveRoom}>Leave Room</Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
