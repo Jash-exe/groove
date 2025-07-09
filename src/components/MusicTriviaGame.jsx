@@ -1,7 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import useRecentMusicQuestions from "../lib/useRecentMusicQuestions";
 
 const optionLetters = ["A", "B", "C", "D"];
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export default function MusicTriviaGame({ total, secs, onDone }) {
   const qSet = useRecentMusicQuestions(total);
@@ -9,7 +18,16 @@ export default function MusicTriviaGame({ total, secs, onDone }) {
   const [picked, setPicked] = useState(null);
   const [time, setTime] = useState(secs);
 
-  const q = qSet[idx];
+  // Shuffle choices for each question and memoize for the session
+  const shuffledChoices = useMemo(() =>
+    qSet.map(q => {
+      const choices = shuffle(q.choices);
+      return { ...q, choices };
+    }),
+    [qSet]
+  );
+
+  const q = shuffledChoices[idx];
 
   useEffect(() => {
     if (time === 0) next();
@@ -24,7 +42,7 @@ export default function MusicTriviaGame({ total, secs, onDone }) {
   }
 
   function next() {
-    if (idx + 1 < qSet.length) {
+    if (idx + 1 < shuffledChoices.length) {
       setIdx(idx + 1);
       setPicked(null);
       setTime(secs);
@@ -34,7 +52,7 @@ export default function MusicTriviaGame({ total, secs, onDone }) {
   }
 
   // Progress bar percent for question number
-  const progress = ((idx + 1) / qSet.length) * 100;
+  const progress = ((idx + 1) / shuffledChoices.length) * 100;
 
   return (
     <div className="flex flex-col items-center min-h-[80vh] w-full">
@@ -44,7 +62,7 @@ export default function MusicTriviaGame({ total, secs, onDone }) {
           <span className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-r from-[#a259ff] to-[#f246a9] text-2xl">🎵</span>
           <div>
             <div className="font-semibold text-white text-lg">Music Trivia</div>
-            <div className="text-sm text-slate-400">Round {idx + 1} of {qSet.length}</div>
+            <div className="text-sm text-slate-400">Round {idx + 1} of {shuffledChoices.length}</div>
           </div>
         </div>
         <button
@@ -99,6 +117,8 @@ export default function MusicTriviaGame({ total, secs, onDone }) {
             style={{ width: `${progress}%` }}
           />
         </div>
+        {/* Round display below progress bar, centered */}
+        <div className="mt-4 text-white text-sm text-center">Round: {idx + 1} / {shuffledChoices.length}</div>
       </div>
     </div>
   );

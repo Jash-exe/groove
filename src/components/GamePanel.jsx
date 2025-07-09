@@ -2,6 +2,8 @@ import { useState } from "react";
 import SettingsDialog from "./SettingsDialog";
 import WyrGame from "./WyrGame";
 import MusicTriviaGame from "./MusicTriviaGame";
+import GuessTheSongGame from "./GuessTheSongGame";
+import PickWhoGame from "./PickWhoGame";
 
 const games = [
   {
@@ -29,24 +31,24 @@ const games = [
   {
     id: "guess-the-song",
     name: "Guess the Song",
-    description: "Listen to short clips and guess the song title and artist",
+    description: "Guess the song title from emoji clues!",
     icon: <span className="text-2xl text-[#a259ff]">🎧</span>,
     difficulty: "Hard",
-    players: "2-6",
+    players: "1 player",
     duration: "15-20 min",
     badgeColor: "bg-pink-600 bg-opacity-20",
-    enabled: false
+    enabled: true // Enable Guess the Song
   },
   {
-    id: "music-quiz",
-    name: "Music Quiz",
-    description: "Answer questions about music history, theory, and pop culture",
-    icon: <span className="text-2xl text-[#a259ff]">📚</span>,
-    difficulty: "Hard",
-    players: "2-8",
-    duration: "20-25 min",
-    badgeColor: "bg-pink-600 bg-opacity-20",
-    enabled: false
+    id: "pick-who-game",
+    name: "Pick Who Game",
+    description: "A fun party game where players vote on who best fits the scenario or who they would choose in a given situation 🤔👥",
+    icon: <span className="text-2xl text-[#a259ff]">🥳</span>,
+    difficulty: "Easy",
+    players: "2-8 players",
+    duration: "10-15 min",
+    badgeColor: "bg-green-600 bg-opacity-20",
+    enabled: true // Enable Pick Who Game
   }
 ];
 
@@ -70,6 +72,14 @@ export default function GamePanel() {
   if (stage === "game" && config && activeGame === "would-you-rather")
     return (
       <WyrGame total={config.total} secs={config.secs} onFinish={() => setStage("menu")} />
+    );
+  if (stage === "game" && config && activeGame === "guess-the-song")
+    return (
+      <GuessTheSongGame total={config.total} secs={config.secs} onDone={() => setStage("menu")} />
+    );
+  if (stage === "game" && config && activeGame === "pick-who-game")
+    return (
+      <PickWhoGame total={config.total} secs={config.secs} onFinish={() => setStage("menu")} />
     );
 
   return (
