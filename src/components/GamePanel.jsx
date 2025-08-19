@@ -16,7 +16,8 @@ export default function GamePanel({ roomCode, currentUserName }) {
   const [activeGame, setActiveGame] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [pendingGameType, setPendingGameType] = useState(null);
-  const [session, setSession] = useState(null); // add this to track session for results
+  const [session, setSession] = useState(null); // track session for results
+  const [gameEnded, setGameEnded] = useState(false); // track if game has ended
 
   useEffect(() => {
     // Get room data
@@ -78,8 +79,19 @@ export default function GamePanel({ roomCode, currentUserName }) {
           filter: `room_code=eq.${roomCode}`,
         },
         (payload) => {
-          setActiveGame(payload.new.game_type);
-          setSession(payload.new); // Set session immediately on update
+          if (payload.new.game_state === 'ended') {
+            setGameEnded(true);
+            setActiveGame(null);
+            setSession(null);
+            // Clean up the game session
+            supabase
+              .from('game_sessions')
+              .delete()
+              .eq('room_code', roomCode);
+          } else {
+            setActiveGame(payload.new.game_type);
+            setSession(payload.new);
+          }
         }
       )
       .subscribe();
@@ -123,31 +135,21 @@ export default function GamePanel({ roomCode, currentUserName }) {
   if (activeGame === 'pick_who') 
     return <PickWhoGame roomCode={roomCode} currentUserName={currentUserName} />;
 
-  // Show results screen if game_state is ended
-  if (session && session.game_state === 'ended') {
+  // Show results screen if game has ended
+  if (gameEnded) {
     return (
-      <GameResults
-        roomCode={roomCode}
-        currentUserName={currentUserName}
-        gameType={session.game_type}
-        sessionId={session.id}
-        isHost={isHost}
-        onReturnToLobby={async () => {
-          setActiveGame(null);
-          setSession(null);
-        }}
-        onAction={async (action) => {
-          if (action === 'replay') {
-            // Start the same game again with the same settings
-            const settings = session.config || {};
-            await startGame(session.game_type, roomCode, currentUserName, settings);
-          } else if (action === 'pick_new') {
-            // Return to game selection screen
-            setActiveGame(null);
-            setSession(null);
-          }
-        }}
-      />
+      <div className="w-full max-w-5xl mx-auto p-6 text-center">
+        <div className="bg-[#181825] rounded-2xl border border-[#232336] p-8">
+          <h2 className="text-2xl font-bold text-white mb-4">Game Ended</h2>
+          <p className="text-gray-300 mb-6">The game has ended. Choose another game to continue playing!</p>
+          <button
+            onClick={() => setGameEnded(false)}
+            className="bg-gradient-to-r from-[#a259ff] to-[#f246a9] text-white font-semibold py-2 px-6 rounded-lg hover:opacity-90 transition"
+          >
+            Back to Game Selection
+          </button>
+        </div>
+      </div>
     );
   }
 

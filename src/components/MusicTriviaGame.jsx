@@ -23,6 +23,8 @@ export default function MusicTriviaGame({ roomCode, currentUserName }) {
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showCorrect, setShowCorrect] = useState(false);
   const [timer, setTimer] = useState(null);
+  const [shuffledOptions, setShuffledOptions] = useState([]);
+  const [correctAnswerIndex, setCorrectAnswerIndex] = useState(0);
   const timerRef = useRef();
 
   useEffect(() => {
@@ -105,11 +107,33 @@ export default function MusicTriviaGame({ roomCode, currentUserName }) {
     };
   }, [roomCode, currentUserName, session?.id]);
 
+  // Shuffle options when question changes
+  useEffect(() => {
+    if (!question) return;
+    
+    // Create an array of option indices and shuffle them
+    const options = [...question.options];
+    const shuffledIndices = Array.from({ length: options.length }, (_, i) => i);
+    for (let i = shuffledIndices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
+    }
+    
+    // Find the new index of the correct answer
+    const correctIndex = shuffledIndices.findIndex(idx => options[idx] === question.answer);
+    
+    // Create the shuffled options array
+    const newShuffledOptions = shuffledIndices.map(idx => options[idx]);
+    
+    setShuffledOptions(newShuffledOptions);
+    setCorrectAnswerIndex(correctIndex);
+    setShowCorrect(false);
+    setSelectedAnswer(null);
+  }, [question]);
+
   useEffect(() => {
     if (!session?.config?.seconds_per_question) return;
     setTimer(session.config.seconds_per_question);
-    setShowCorrect(false);
-    setSelectedAnswer(null);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setTimer((prev) => {
@@ -185,10 +209,10 @@ export default function MusicTriviaGame({ roomCode, currentUserName }) {
         <h1 className="text-xl font-bold text-white mb-6 text-center">{question.question}</h1>
         
         <div className="grid grid-cols-2 gap-4 mb-6">
-          {question.options.map((opt, i) => {
+          {shuffledOptions.map((opt, i) => {
             let colour = "bg-[#232336] text-white hover:bg-gradient-to-r hover:from-[#a259ff] hover:to-[#f246a9] hover:text-white";
             if (showCorrect) {
-              if (opt === correctAnswer) {
+              if (i === correctAnswerIndex) {
                 colour = "bg-green-600 text-white";
               } else if (selectedAnswer === opt) {
                 colour = "bg-red-600 text-white";
